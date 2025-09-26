@@ -1,4 +1,4 @@
-// src/ErrorBoundary.jsx
+// src/RErrorBoundary.jsx
 import React from "react";
 export default class ErrorBoundary extends React.Component {
   constructor(p){ super(p); this.state={err:null,info:null}; }

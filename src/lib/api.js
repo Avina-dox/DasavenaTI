@@ -1,7 +1,15 @@
-import axios from 'axios';
+// api.js
+import axios from "axios";
 
-export const API_BASE =
-    import.meta.env.VITE_API_BASE ?? "https://dasavenasite.domcloud.dev/";
+// Cambia SOLO esta bandera cuando quieras trabajar en local
+const USE_LOCAL_API = false; // ← pon false para usar producción
+
+const URLS = {
+  LOCAL: "http://localhost/api", // ajusta tu puerto/ruta si aplica
+  PROD: import.meta.env.VITE_API_BASE ?? "https://dasavenasite.domcloud.dev/api",
+};
+
+export const API_BASE = USE_LOCAL_API ? URLS.LOCAL : URLS.PROD;
 
 const api = axios.create({ baseURL: API_BASE });
 
@@ -17,5 +25,3 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
-
-

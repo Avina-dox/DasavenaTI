@@ -1,47 +1,58 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import api, { setToken, clearToken } from "../lib/api";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import api, { setToken as saveToken, clearToken as dropToken } from "../lib/api";
 
-const Ctx = createContext(null);
-export const useAuth = () => useContext(Ctx);
+const AuthCtx = createContext(null);
+
+export function useAuth() {
+  return useContext(AuthCtx);
+}
 
 export default function AuthProvider({ children }) {
-  const [loading, setLoading] = useState(true);
-  const [authed, setAuthed] = useState(false);
   const [user, setUser] = useState(null);
+  const [token, setTokenState] = useState(localStorage.getItem("access_token") || "");
+  const isAuthenticated = !!token;
 
-  // Rehidrata desde localStorage (sin /api/me)
+  // Hidrata usuario si tienes un endpoint /me (opcional)
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
-    const u = localStorage.getItem("user_json");
-    if (t && u) {
-      setAuthed(true);
-      try { setUser(JSON.parse(u)); } catch {}
-    }
-    setLoading(false);
-  }, []);
+    let ignore = false;
+    (async () => {
+      if (!token) return;
+      try {
+        const { data } = await api.get("/me"); // si no tienes /me, comenta esto
+        if (!ignore) setUser(data);
+      } catch {
+        // Token inválido → limpia
+        if (!ignore) {
+          dropToken();
+          setTokenState("");
+          setUser(null);
+        }
+      }
+    })();
+    return () => { ignore = true; };
+  }, [token]);
 
-  const login = async (email, password) => {
-    const { data } = await api.post("/api/login", { email, password });
-    // Tu API devuelve { user, token }
-    if (data?.token) setToken(data.token);
-    if (data?.user) {
-      setUser(data.user);
-      localStorage.setItem("user_json", JSON.stringify(data.user));
-    }
-    setAuthed(true);
+  const login = async ({ email, password }) => {
+    const { data } = await api.post("/login", { email, password });
+    const t = data.token;   // ajusta si tu campo de token tiene otro nombre
+    const u = data.user;
+    saveToken(t);
+    setTokenState(t);
+    setUser(u ?? null);
+    return { user: u, token: t };
   };
 
   const logout = async () => {
-    // No tienes /api/logout, así que limpiamos local
-    clearToken();
-    localStorage.removeItem("user_json");
+    // Si tienes endpoint para revocar, puedes llamarlo aquí
+    dropToken();
+    setTokenState("");
     setUser(null);
-    setAuthed(false);
   };
 
-  return (
-    <Ctx.Provider value={{ loading, authed, user, login, logout }}>
-      {children}
-    </Ctx.Provider>
+  const value = useMemo(
+    () => ({ user, setUser, token, isAuthenticated, login, logout }),
+    [user, token, isAuthenticated]
   );
+
+  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }
