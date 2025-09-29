@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../lib/api";
 import { Link } from "react-router-dom";
 
+
 export default function Activos() {
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");

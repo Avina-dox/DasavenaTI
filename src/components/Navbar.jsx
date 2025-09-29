@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 
+
 // Minimalist modern button base styles (no gradients)
 const linkBase =
   "px-4 py-2 rounded-lg text-base font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C16C] focus-visible:ring-offset-2 shadow-sm border border-transparent";
@@ -170,7 +171,7 @@ export default function NavBar() {
           <img
             src="https://dasavenasite.domcloud.dev/images/logo.png"
             alt="Dasavena"
-            className="h-12 w-12 rounded-2xl shadow-lg border-2 border-white/30 bg-white/30"
+            className="h-20 w-20 "
           />
           <span className="hidden sm:inline text-2xl  pr-10 font-bold tracking-wide text-white drop-shadow-lg ">
             Dasavena Activos TI 

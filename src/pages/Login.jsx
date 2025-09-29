@@ -104,7 +104,7 @@ export default function Login() {
 
             {err && (
               <p className="mt-1 text-center text-sm text-red-600 font-semibold bg-red-50 rounded-lg px-4 py-2 shadow">
-                {err}
+                {"Contraseña o correo incorrecto"}
               </p>
             )}
 

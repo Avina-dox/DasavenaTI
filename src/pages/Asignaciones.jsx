@@ -46,22 +46,22 @@ export default function Asignaciones() {
 
   return (
     <section className="space-y-4">
-      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Historial de asignaciones</h1>
+          <h1 className="text-2xl font-bold text-[#E9C16C] tracking-widest drop-shadow-lg">Historial de asignaciones</h1>
           <p className="text-sm opacity-70">Filtra por activo, usuario, estado o fechas.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           <input
             placeholder="Buscar (tag/serie/marca/modelo/usuario)"
             value={q}
             onChange={(e)=>setQ(e.target.value)}
-            className="rounded-xl bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-[#E9C16C]"
+            className="rounded-xl bg-[#181A20] px-4 py-2 text-sm text-[#E9C16C] outline-none ring-2 ring-[#E9C16C]/30 focus:ring-[#E9C16C] transition-all shadow-lg"
           />
           <select
             value={state}
             onChange={(e)=>setState(e.target.value)}
-            className="rounded-xl bg-white/10 px-3 py-2 text-sm ring-1 ring-white/10 focus:ring-[#E9C16C]"
+            className="rounded-xl bg-[#181A20] px-4 py-2 text-sm text-[#E9C16C] ring-2 ring-[#E9C16C]/30 focus:ring-[#E9C16C] transition-all shadow-lg"
           >
             <option value="all">Todos</option>
             <option value="current">Vigentes</option>
@@ -69,11 +69,11 @@ export default function Asignaciones() {
           </select>
           <input
             type="date" value={from} onChange={(e)=>setFrom(e.target.value)}
-            className="rounded-xl bg-white/10 px-3 py-2 text-sm ring-1 ring-white/10 focus:ring-[#E9C16C]"
+            className="rounded-xl bg-[#181A20] px-4 py-2 text-sm text-[#E9C16C] ring-2 ring-[#E9C16C]/30 focus:ring-[#E9C16C] transition-all shadow-lg"
           />
           <input
             type="date" value={to} onChange={(e)=>setTo(e.target.value)}
-            className="rounded-xl bg-white/10 px-3 py-2 text-sm ring-1 ring-white/10 focus:ring-[#E9C16C]"
+            className="rounded-xl bg-[#181A20] px-4 py-2 text-sm text-[#E9C16C] ring-2 ring-[#E9C16C]/30 focus:ring-[#E9C16C] transition-all shadow-lg"
           />
           <button
             onClick={()=>fetchData(1)}
@@ -84,16 +84,16 @@ export default function Asignaciones() {
         </div>
       </header>
 
-      <div className="overflow-x-auto rounded-2xl border border-white/10">
-        <table className="min-w-full text-sm">
-          <thead className="bg-white/5">
+      <div className="overflow-x-auto rounded-2xl border-2 border-[#E9C16C]/30 bg-gradient-to-br from-[#181A20] via-[#23263a] to-[#181A20] shadow-2xl">
+        <table className="min-w-full text-sm text-[#E9C16C]">
+          <thead className="bg-gradient-to-r from-[#23263a] to-[#181A20]">
             <tr>
-              <th className="px-3 py-2 text-left">Fecha asignación</th>
-              <th className="px-3 py-2 text-left">Activo</th>
-              <th className="px-3 py-2 text-left">Usuario</th>
-              <th className="px-3 py-2 text-left">Estado</th>
-              <th className="px-3 py-2 text-left">Devuelto</th>
-              <th className="px-3 py-2 text-left">Acciones</th>
+              <th className="px-4 py-3 text-left font-semibold tracking-wider border-b border-[#E9C16C]/20">Fecha asignación</th>
+              <th className="px-4 py-3 text-left font-semibold tracking-wider border-b border-[#E9C16C]/20">Activo</th>
+              <th className="px-4 py-3 text-left font-semibold tracking-wider border-b border-[#E9C16C]/20">Usuario</th>
+              <th className="px-4 py-3 text-left font-semibold tracking-wider border-b border-[#E9C16C]/20">Estado</th>
+              <th className="px-4 py-3 text-left font-semibold tracking-wider border-b border-[#E9C16C]/20">Devuelto</th>
+              <th className="px-4 py-3 text-left font-semibold tracking-wider border-b border-[#E9C16C]/20">Acciones</th>
             </tr>
           </thead>
           <tbody>

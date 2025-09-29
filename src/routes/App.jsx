@@ -11,6 +11,7 @@ import Usuarios from "../pages/Usuarios";
 import UsuarioDetalle from "../pages/UsuarioDetalle";
 import Login from "../pages/Login";  // ya la tienes
 import Health from "../pages/Healt.jsx"; // opcional
+import Inicio from "../pages/Inicio.jsx"; //nueva pagina de inni
 
 function RequireAuth({ children }) {
   const auth = useAuth();          // puede ser null si algo falla
@@ -42,7 +43,7 @@ export default function AppRoutes() {
           element={
             <RequireAuth>
               <LayoutPrivate>
-                <Activos />
+                <Inicio />
               </LayoutPrivate>
             </RequireAuth>
           }
