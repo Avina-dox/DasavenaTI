@@ -164,7 +164,7 @@ export default function Inicio() {
                         <span style={{ fontWeight: 900, fontSize: 36 }}>DA</span>
                     </Avatar>
                     <Box>
-                        <Typography variant="h3" fontWeight={900} color="#fff" gutterBottom>
+                        <Typography variant="h4" fontWeight={900} color="#fff" gutterBottom>
                             Dashboard de Activos
                         </Typography>
                         <Typography variant="subtitle1" color="#e3f2fd">
