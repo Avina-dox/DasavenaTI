@@ -108,35 +108,7 @@ export default function Inicio() {
             </Box>
 
             <Grid container spacing={4}>
-                <Grid item xs={12} md={4}>
-                    <Card sx={{ borderRadius: 3, boxShadow: 3, minHeight: 320 }}>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom fontWeight={600}>
-                                Distribución por Tipo
-                            </Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            <Pie data={pieData} />
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid item xs={12} md={8}>
-                    <Card sx={{ borderRadius: 3, boxShadow: 3, minHeight: 320 }}>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom fontWeight={600}>
-                                Activos por Marca
-                            </Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            <Bar
-                                data={barData}
-                                options={{
-                                    responsive: true,
-                                    plugins: { legend: { display: false } },
-                                    scales: { x: { grid: { display: false } }, y: { beginAtZero: true } },
-                                }}
-                            />
-                        </CardContent>
-                    </Card>
-                </Grid>
+                
 
                 <Grid item xs={12}>
                     <Card sx={{ borderRadius: 3, boxShadow: 3 }}>
@@ -170,6 +142,7 @@ export default function Inicio() {
                                             <Typography variant="caption" color="text.secondary" display="block">
                                                 SN: {a.serial_number}
                                             </Typography>
+                                            
                                             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                                                 Usuario:{" "}
                                                 {a.current_assignment?.user?.name ?? (
@@ -195,6 +168,7 @@ export default function Inicio() {
                                 {Object.entries(users).map(([user, assets]) => (
                                     <Grid item xs={12} sm={6} md={4} key={user}>
                                         <Card sx={{ bgcolor: "#f5f5f5", borderRadius: 2, boxShadow: 1, p: 2 }}>
+                                               
                                             <Typography
                                                 variant="subtitle1"
                                                 fontWeight={600}
@@ -216,6 +190,35 @@ export default function Inicio() {
                                     </Grid>
                                 ))}
                             </Grid>
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <Card sx={{ borderRadius: 3, boxShadow: 3, minHeight: 320 }}>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom fontWeight={600}>
+                                Distribución por Tipo
+                            </Typography>
+                            <Divider sx={{ mb: 2 }} />
+                            <Pie data={pieData} />
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid item xs={12} md={8}>
+                    <Card sx={{ borderRadius: 3, boxShadow: 3, minHeight: 320 }}>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom fontWeight={600}>
+                                Activos por Marca
+                            </Typography>
+                            <Divider sx={{ mb: 2 }} />
+                            <Bar
+                                data={barData}
+                                options={{
+                                    responsive: true,
+                                    plugins: { legend: { display: false } },
+                                    scales: { x: { grid: { display: false } }, y: { beginAtZero: true } },
+                                }}
+                            />
                         </CardContent>
                     </Card>
                 </Grid>
