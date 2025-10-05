@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
+import { useSearchParams } from "react-router-dom";
 
 function useDebounce(value, ms = 300) {
   const [v, setV] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(id);
-  }, [value, ms]);
+  useEffect(() => { const id = setTimeout(() => setV(value), ms); return () => clearTimeout(id); }, [value, ms]);
   return v;
 }
 
@@ -26,15 +24,7 @@ function ResultItem({ title, subtitle, right, onClick }) {
   );
 }
 
-// Select asíncrono minimal (sin libs)
-function AsyncSelect({
-  label,
-  placeholder,
-  fetcher,         // async (q) => items
-  mapper,          // (item) => { id, title, subtitle, right }
-  onSelect,
-  valueLabel,      // string a mostrar cuando ya hay selección
-}) {
+function AsyncSelect({ label, placeholder, fetcher, mapper, onSelect, valueLabel }) {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
@@ -55,9 +45,7 @@ function AsyncSelect({
 
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-semibold uppercase tracking-wide text-white/70">
-        {label}
-      </label>
+      <label className="block text-xs font-semibold uppercase tracking-wide text-white/70">{label}</label>
 
       {!valueLabel && (
         <input
@@ -71,11 +59,7 @@ function AsyncSelect({
       {valueLabel && (
         <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
           <span className="text-sm">{valueLabel}</span>
-          <button
-            type="button"
-            className="text-xs underline opacity-80"
-            onClick={() => { setQ(""); onSelect(null); }}
-          >
+          <button type="button" className="text-xs underline opacity-80" onClick={() => { onSelect(null); }}>
             cambiar
           </button>
         </div>
@@ -84,22 +68,19 @@ function AsyncSelect({
       {!valueLabel && dq && (
         <div className="rounded-xl border border-white/10 bg-white/5">
           {loading && <div className="px-3 py-2 text-sm opacity-70">Buscando…</div>}
-          {!loading && items.length === 0 && (
-            <div className="px-3 py-2 text-sm opacity-70">Sin resultados</div>
-          )}
-          {!loading &&
-            items.map((it) => {
-              const m = mapper(it);
-              return (
-                <ResultItem
-                  key={m.id}
-                  title={m.title}
-                  subtitle={m.subtitle}
-                  right={m.right}
-                  onClick={() => { onSelect(it); setItems([]); setQ(""); }}
-                />
-              );
-            })}
+          {!loading && items.length === 0 && <div className="px-3 py-2 text-sm opacity-70">Sin resultados</div>}
+          {!loading && items.map((it) => {
+            const m = mapper(it);
+            return (
+              <ResultItem
+                key={m.id}
+                title={m.title}
+                subtitle={m.subtitle}
+                right={m.right}
+                onClick={() => { onSelect(it); setItems([]); setQ(""); }}
+              />
+            );
+          })}
         </div>
       )}
     </div>
@@ -107,13 +88,43 @@ function AsyncSelect({
 }
 
 export default function Asignar() {
+  const [searchParams] = useSearchParams();
+
   const [usuario, setUsuario] = useState(null);
   const [activo, setActivo] = useState(null);
   const [detalle, setDetalle] = useState(null);
   const [noti, setNoti] = useState({ type: "", msg: "" });
   const [loading, setLoading] = useState(false);
 
-  // Trae detalle del activo seleccionado (por si cambió de estado)
+  // ======= Precarga usuario desde ?user=ID (&n=Nombre opcional) =======
+  const pendingName = searchParams.get("n") || "";
+  useEffect(() => {
+    const uid = searchParams.get("user");
+    if (!uid) return;
+
+    let ignore = false;
+    (async () => {
+      try {
+        // 1) intenta /users/:id si existe
+        const { data } = await api.get(`/users/${uid}`);
+        if (!ignore) setUsuario(data);
+      } catch {
+        try {
+          // 2) fallback a /users?search=uid y filtra por id exacto
+          const { data } = await api.get("/users", { params: { search: uid } });
+          const list = data.data || data;
+          const found = list.find((u) => String(u.id) === String(uid));
+          if (!ignore && found) setUsuario(found);
+        } catch {
+          /* sin selección si falla */
+        }
+      }
+    })();
+
+    return () => { ignore = true; };
+  }, [searchParams]);
+
+  // ======= Detalle del activo elegido =======
   useEffect(() => {
     let ignore = false;
     (async () => {
@@ -129,26 +140,17 @@ export default function Asignar() {
   }, [activo?.id]);
 
   // Fetchers
-  const fetchActivos = useMemo(
-    () => async (term) => {
-      const { data } = await api.get("/assets", {
-        params: { status: "in_stock", q: term },
-      });
-      return data.data || data; // por si viene paginado
-    },
-    []
-  );
+  const fetchActivos = useMemo(() => async (term) => {
+    const { data } = await api.get("/assets", { params: { status: "in_stock", q: term } });
+    return data.data || data;
+  }, []);
 
-  const fetchUsuarios = useMemo(
-    () => async (term) => {
-      // Ajusta a tu endpoint real; ideal: /users?search=term
-      const { data } = await api.get("/users", { params: { search: term } });
-      // si tu backend regresa {data:[]}, ajusta:
-      return data.data || data;
-    },
-    []
-  );
+  const fetchUsuarios = useMemo(() => async (term) => {
+    const { data } = await api.get("/users", { params: { search: term } });
+    return data.data || data;
+  }, []);
 
+  // Asignar
   const asignar = async () => {
     if (!usuario?.id || !activo?.id) return;
     setLoading(true);
@@ -161,13 +163,9 @@ export default function Asignar() {
         notes: "Entrega desde panel",
       });
       setNoti({ type: "ok", msg: "✅ Asignación realizada" });
-      setUsuario(null);
-      setActivo(null);
-      setDetalle(null);
+      setUsuario(null); setActivo(null); setDetalle(null);
     } catch (e) {
-      const msg =
-        e?.response?.data?.message ||
-        "No se pudo asignar. Verifica que el activo esté disponible.";
+      const msg = e?.response?.data?.message || "No se pudo asignar. Verifica que el activo esté disponible.";
       setNoti({ type: "err", msg });
     } finally {
       setLoading(false);
@@ -175,15 +173,14 @@ export default function Asignar() {
     }
   };
 
-  const activoOcupado =
-    detalle && detalle.status && detalle.status !== "in_stock";
+  const activoOcupado = detalle && detalle.status && detalle.status !== "in_stock";
 
   return (
     <section className="max-w-4xl space-y-6">
       <h1 className="text-lg font-semibold">Asignar activo</h1>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Columna izquierda: selects */}
+        {/* Columna izquierda */}
         <div className="space-y-4">
           <AsyncSelect
             label="Usuario"
@@ -197,7 +194,9 @@ export default function Asignar() {
             })}
             onSelect={setUsuario}
             valueLabel={
-              usuario ? `${usuario.name || usuario.nombre} (${usuario.email})` : ""
+              usuario
+                ? `${usuario.name || usuario.nombre} (${usuario.email})`
+                : pendingName /* provisional si llegó ?n= */
             }
           />
 
@@ -235,50 +234,24 @@ export default function Asignar() {
           </div>
 
           {noti.msg && (
-            <div
-              className={`rounded-xl px-3 py-2 text-sm ${
-                noti.type === "ok"
-                  ? "bg-green-500/20 text-green-200"
-                  : "bg-red-500/20 text-red-200"
-              }`}
-            >
+            <div className={`rounded-xl px-3 py-2 text-sm ${noti.type === "ok" ? "bg-green-500/20 text-green-200" : "bg-red-500/20 text-red-200"}`}>
               {noti.msg}
             </div>
           )}
         </div>
 
-        {/* Columna derecha: ficha del activo */}
+        {/* Columna derecha: ficha */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <h2 className="mb-3 font-semibold">Ficha del activo</h2>
           {!detalle && <p className="opacity-70 text-sm">Selecciona un activo…</p>}
           {detalle && (
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="opacity-70">Tag</span>
-                <span className="font-mono">{detalle.asset_tag}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="opacity-70">Tipo</span>
-                <span>{detalle.type?.name ?? "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="opacity-70">Marca / Modelo</span>
-                <span>{[detalle.brand, detalle.model].filter(Boolean).join(" / ") || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="opacity-70">Serie</span>
-                <span>{detalle.serial_number || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="opacity-70">Condición</span>
-                <span>{detalle.condition}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="opacity-70">Estado</span>
-                <span className={activoOcupado ? "text-red-300" : ""}>
-                  {detalle.status}
-                </span>
-              </div>
+              <div className="flex justify-between"><span className="opacity-70">Tag</span><span className="font-mono">{detalle.asset_tag}</span></div>
+              <div className="flex justify-between"><span className="opacity-70">Tipo</span><span>{detalle.type?.name ?? "—"}</span></div>
+              <div className="flex justify-between"><span className="opacity-70">Marca / Modelo</span><span>{[detalle.brand, detalle.model].filter(Boolean).join(" / ") || "—"}</span></div>
+              <div className="flex justify-between"><span className="opacity-70">Serie</span><span>{detalle.serial_number || "—"}</span></div>
+              <div className="flex justify-between"><span className="opacity-70">Condición</span><span>{detalle.condition}</span></div>
+              <div className="flex justify-between"><span className="opacity-70">Estado</span><span className={activoOcupado ? "text-red-300" : ""}>{detalle.status}</span></div>
               {detalle.currentAssignment?.user && (
                 <div className="rounded-xl bg-red-500/10 p-2 text-red-200">
                   Ya asignado a: <b>{detalle.currentAssignment.user.name}</b>
