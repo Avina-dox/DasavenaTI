@@ -1,406 +1,329 @@
 import {
-    Card,
-    CardContent,
-    Typography,
-    Grid,
-    Box,
-    Divider,
-    Avatar,
-    Stack,
-    TextField,
-    InputAdornment,
-    CircularProgress,
-    Chip,
-    Tooltip,
-    Fade,
+  Card, CardContent, Typography, Grid, Box, Divider, Avatar, Stack,
+  TextField, InputAdornment, Chip, Skeleton, Tabs, Tab, Tooltip, IconButton
 } from "@mui/material";
 import { Pie, Bar } from "react-chartjs-2";
 import {
-    Chart as ChartJS,
-    ArcElement,
-    BarElement,
-    CategoryScale,
-    LinearScale,
-    Tooltip as ChartTooltip,
-    Legend,
+  Chart as ChartJS, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip as ChartTooltip, Legend
 } from "chart.js";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SearchIcon from "@mui/icons-material/Search";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import api from "../lib/api";
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, ChartTooltip, Legend);
 
-const COLORS = [
-    "#1976d2",
-    "#43a047",
-    "#fbc02d",
-    "#e53935",
-    "#8e24aa",
-    "#00bcd4",
-    "#ff7043",
-    "#26c6da",
-    "#ab47bc",
-    "#66bb6a",
-];
+const COLORS = ["#6b8afd","#22c55e","#fbbf24","#ef4444","#a78bfa","#22d3ee","#fb923c","#14b8a6","#f472b6","#84cc16"];
 
-export default function Inicio() {
-    const [rows, setRows] = useState([]);
-    const [q, setQ] = useState("");
-    const [status, setStatus] = useState("");
-    const [typeId, setTypeId] = useState("");
-    const [loading, setLoading] = useState(false);
+const money = (n=0) => (Number(n) || 0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+const safe = (v, d=0) => (v === null || v === undefined) ? d : v;
 
-    const fetchData = async (params = {}) => {
-        setLoading(true);
-        try {
-            const { data } = await api.get("/assets", { params: { q, status, type_id: typeId, ...params } });
-            setRows(data.data || data);
-        } finally {
-            setLoading(false);
-        }
+export default function Inicio(){
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // filtros
+  const [q, setQ] = useState("");
+  const [tab, setTab] = useState(0); // 0=Todos, 1=Disponibles, 2=Asignados, 3=Reparación, 4=Baja
+
+  // cargar activos
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (q) params.q = q;
+      if (tab === 1) params.status = "in_stock";
+      if (tab === 2) params.status = "assigned";
+      if (tab === 3) params.status = "repair";
+      if (tab === 4) params.status = "retired";
+      const { data } = await api.get("/assets", { params });
+      setRows(data.data || data);
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [tab]);
+  useEffect(() => {
+    const id = setTimeout(fetchData, 300);
+    return () => clearTimeout(id);
+  }, [q]); // debounce
+
+  // KPIs
+  const kpis = useMemo(() => {
+    const total = rows.length;
+    const asignados = rows.filter(a => a.status === "assigned").length;
+    const disponibles = rows.filter(a => a.status === "in_stock").length;
+    const book = rows.reduce((acc,a)=> acc + safe(a?.depreciation?.current,0), 0);
+    return { total, asignados, disponibles, book };
+  }, [rows]);
+
+  // Pie: por tipo
+  const pieData = useMemo(() => {
+    const counts = rows.reduce((acc,a)=>{
+      const k = a.type?.name || "Otro";
+      acc[k] = (acc[k]||0)+1; return acc;
+    },{});
+    return {
+      labels: Object.keys(counts),
+      datasets: [{ data: Object.values(counts), backgroundColor: COLORS, borderWidth: 2, borderColor: "#0b1020" }]
     };
+  }, [rows]);
 
-    useEffect(() => {
-        fetchData();
-        // eslint-disable-next-line
-    }, [q, status, typeId]);
-
-    // Pie chart data (by type)
-    const assetTypes = rows.reduce((acc, a) => {
-        const type = a.type?.name || "Otro";
-        acc[type] = (acc[type] || 0) + 1;
-        return acc;
-    }, {});
-
-    const pieData = {
-        labels: Object.keys(assetTypes),
-        datasets: [
-            {
-                data: Object.values(assetTypes),
-                backgroundColor: COLORS,
-                borderWidth: 2,
-                borderColor: "#fff",
-            },
-        ],
+  // Barras: por marca
+  const barData = useMemo(() => {
+    const counts = rows.reduce((acc,a)=>{
+      const k = a.brandRef?.name || a.brand || "Otro";
+      acc[k] = (acc[k]||0)+1; return acc;
+    },{});
+    return {
+      labels: Object.keys(counts),
+      datasets: [{
+        label: "Activos por marca",
+        data: Object.values(counts),
+        backgroundColor: COLORS,
+        borderRadius: 8,
+        maxBarThickness: 36
+      }]
     };
+  }, [rows]);
 
-    // Bar chart data (by brand)
-    const brands = rows.reduce((acc, a) => {
-        const brand = a.brand || "Otro";
-        acc[brand] = (acc[brand] || 0) + 1;
-        return acc;
-    }, {});
-
-    const barData = {
-        labels: Object.keys(brands),
-        datasets: [
-            {
-                label: "Activos por Marca",
-                data: Object.values(brands),
-                backgroundColor: COLORS,
-                borderRadius: 8,
-                maxBarThickness: 36,
-            },
-        ],
-    };
-
-    // Group assets by user
-    const users = {};
-    rows.forEach((a) => {
-        const user = a.current_assignment?.user?.name ?? "Sin asignar";
-        if (!users[user]) users[user] = [];
-        users[user].push(a);
+  // agrupado por usuario
+  const porUsuario = useMemo(() => {
+    const map = new Map();
+    rows.forEach(a=>{
+      const user = a.current_assignment?.user?.name ?? "Sin asignar";
+      if(!map.has(user)) map.set(user, []);
+      map.get(user).push(a);
     });
+    // ordena por cantidad desc
+    return Array.from(map.entries()).sort((a,b)=>b[1].length - a[1].length);
+  }, [rows]);
 
-    // Helper for asset status color
-    const statusColor = (status) => {
-        if (!status) return "default";
-        if (status === "Activo") return "success";
-        if (status === "Inactivo") return "warning";
-        return "info";
-    };
+  const statusChip = (s) => {
+    if (s==="in_stock") return <Chip size="small" label="disponible" color="success" />;
+    if (s==="assigned") return <Chip size="small" label="asignado" color="primary" />;
+    if (s==="repair") return <Chip size="small" label="reparación" color="warning" />;
+    if (s==="retired") return <Chip size="small" label="baja" color="error" />;
+    return <Chip size="small" label={s || "—"} />;
+  };
 
-    return (
-        <Box
-            sx={{
-                maxWidth: "1400px",
-                mx: "auto",
-                p: { xs: 2, md: 4 },
-                bgcolor: "linear-gradient(135deg, #1e293b 0%, #23272f 100%)",
-                minHeight: "100vh",
-            }}
-        >
-            {/* Header */}
-            <Box
-                sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    bgcolor: "#fff",
-                    borderRadius: 5,
-                    boxShadow: 3,
-                    p: { xs: 2, md: 5 },
-                    mb: 5,
-                    minHeight: 180,
-                    background: "linear-gradient(90deg, gray 0%, gray 100%)",
-                    color: "#fff",
+  return (
+    <Box sx={{ maxWidth: 1280, mx:"auto", p:{xs:2, md:4} }}>
+      {/* Header */}
+      <Card sx={{ borderRadius:4, mb:3, background:"linear-gradient(135deg,#2d1b3d 0%,#2a2e45 100%)", color:"#fff" }}>
+        <CardContent sx={{ py:3 }}>
+          <Stack direction="row" alignItems="center" spacing={2} justifyContent="space-between">
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Avatar src="https://dasavenasite.domcloud.dev/images/logo.png" sx={{ width:64, height:64, border:"3px solid rgba(255,255,255,.35)" }}/>
+              <Box>
+                <Typography variant="h5" fontWeight={800}>Dashboard de Activos</Typography>
+                <Typography variant="body2" sx={{ opacity:.85 }}>
+                  Visión general de inventario, uso y valor contable.
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Stack direction={{ xs:"column", sm:"row" }} spacing={1} alignItems={{xs:"stretch", sm:"center"}}>
+              <TextField
+                size="small"
+                value={q}
+                onChange={(e)=>setQ(e.target.value)}
+                placeholder="Buscar tag / serie / marca / usuario…"
+                sx={{ minWidth: 280, bgcolor:"#fff", borderRadius:2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start"><SearchIcon color="primary" /></InputAdornment>
+                  ),
                 }}
-            >
-                <Stack direction="row" spacing={3} alignItems="center">
-                    <Avatar
-                        src=""
-                        alt="Logo"
-                        sx={{
-                            width: 80,
-                            height: 80,
-                            bgcolor: "#fff",
-                            color: "#1976d2",
-                            fontSize: 38,
-                            fontWeight: 700,
-                            border: "4px solid #fff",
-                            boxShadow: 2,
-                        }}
-                    >
-                        <span style={{ fontWeight: 900, fontSize: 36 }}>DA</span>
-                    </Avatar>
-                    <Box>
-                        <Typography variant="h4" fontWeight={900} color="#fff" gutterBottom>
-                            Dashboard de Activos
-                        </Typography>
-                        <Typography variant="subtitle1" color="#e3f2fd">
-                            Visualiza y gestiona tus activos de manera eficiente.
-                        </Typography>
-                    </Box>
-                </Stack>
-                <Box sx={{ minWidth: 320 }}>
-                    <TextField
-                        variant="outlined"
-                        size="small"
-                        placeholder="Buscar activo, marca, usuario..."
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                        sx={{
-                            bgcolor: "#fff",
-                            borderRadius: 2,
-                            boxShadow: 1,
-                            minWidth: 260,
-                        }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon color="primary" />
-                                </InputAdornment>
-                            ),
-                        }}
+              />
+              <IconButton onClick={fetchData} sx={{ color:"#fff" }} aria-label="refrescar">
+                <RefreshIcon />
+              </IconButton>
+            </Stack>
+          </Stack>
+
+          <Tabs
+            value={tab}
+            onChange={(_,v)=>setTab(v)}
+            textColor="inherit"
+            indicatorColor="secondary"
+            sx={{ mt:2 }}
+          >
+            <Tab label="Todos" />
+            <Tab label="Disponibles" />
+            <Tab label="Asignados" />
+            <Tab label="Reparación" />
+            <Tab label="Baja" />
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* KPIs */}
+      <Grid container spacing={3} sx={{ mb:1 }}>
+        {[
+          {label:"Activos totales", value:kpis.total, sub:"unidades"},
+          {label:"Asignados", value:kpis.asignados, sub:"en uso"},
+          {label:"Disponibles", value:kpis.disponibles, sub:"inventario"},
+          {label:"Valor contable", value:`$ ${money(kpis.book)}`, sub:"depreciado"}
+        ].map((k, i)=>(
+          <Grid item xs={12} sm={6} md={3} key={i}>
+            <Card sx={{ borderRadius:3, boxShadow:3 }}>
+              <CardContent>
+                <Typography sx={{ opacity:.7, fontSize:13 }}>{k.label}</Typography>
+                <Typography variant="h5" fontWeight={800} sx={{ mt:.5 }}>{k.value}</Typography>
+                <Typography variant="caption" sx={{ opacity:.6 }}>{k.sub}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Grid container spacing={3}>
+        {/* Pie por tipo */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius:3, height:"100%" }}>
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700}>Distribución por tipo</Typography>
+              <Divider sx={{ my:1.5 }} />
+              {loading
+                ? <Skeleton variant="rounded" height={240} />
+                : <Box sx={{ height:240, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <Pie data={pieData} />
+                  </Box>
+              }
+              <Box sx={{ mt:1, display:"flex", flexWrap:"wrap", gap:0.5 }}>
+                {pieData.labels.map((l,i)=>(
+                  <Chip key={l} size="small"
+                    label={`${l} (${pieData.datasets[0].data[i]})`}
+                    sx={{ bgcolor: COLORS[i%COLORS.length], color:"#fff" }}
+                  />
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Barras por marca */}
+        <Grid item xs={12} md={8}>
+          <Card sx={{ borderRadius:3, height:"100%" }}>
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700}>Activos por marca</Typography>
+              <Divider sx={{ my:1.5 }} />
+              {loading
+                ? <Skeleton variant="rounded" height={260} />
+                : <Box sx={{ height:260 }}>
+                    <Bar
+                      data={barData}
+                      options={{
+                        responsive: true,
+                        plugins: { legend: { display: false }},
+                        scales: {
+                          x:{ grid:{ display:false }, ticks:{ font:{ size:12 }}},
+                          y:{ beginAtZero:true, grid:{ color:"#eee" }, ticks:{ stepSize:1 }}
+                        }
+                      }}
                     />
-                </Box>
-            </Box>
+                  </Box>
+              }
+            </CardContent>
+          </Card>
+        </Grid>
 
-            {/* Main Content */}
-            <Grid container spacing={4}>
-                {/* Charts */}
-                <Grid item xs={12} md={4}>
-                    <Card
-                        sx={{
-                            borderRadius: 4,
-                            boxShadow: 4,
-                            minHeight: 340,
-                            background: "linear-gradient(135deg, #1976d2 0%, #43a047 100%)",
-                            color: "#fff",
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom fontWeight={700} color="#fff">
-                                Distribución por Tipo
+        {/* Activos por usuario */}
+        <Grid item xs={12}>
+          <Card sx={{ borderRadius:3 }}>
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700}>Activos por usuario</Typography>
+              <Divider sx={{ my:1.5 }} />
+              <Grid container spacing={2}>
+                {loading && Array.from({length:6}).map((_,i)=>(
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={i}>
+                    <Skeleton variant="rounded" height={120} />
+                  </Grid>
+                ))}
+                {!loading && porUsuario.map(([user, assets])=>(
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={user}>
+                    <Card sx={{ p:2, borderLeft:`6px solid ${user==="Sin asignar"?"#fbbf24":"#6b8afd"}` }}>
+                      <Typography fontWeight={800} sx={{ mb:.5 }}>
+                        {user==="Sin asignar" ? "— Sin asignar" : user}
+                      </Typography>
+                      <Typography variant="caption" sx={{ opacity:.65 }}>
+                        {assets.length} activo{assets.length!==1?"s":""}
+                      </Typography>
+                      <Divider sx={{ my:1 }} />
+                      <Stack spacing={0.5}>
+                        {assets.slice(0,3).map(a=>(
+                          <Stack direction="row" key={a.id} spacing={1} alignItems="center">
+                            <Tooltip title={a.type?.name || ""}>
+                              <Avatar sx={{ width:22, height:22, bgcolor:COLORS[(a.id||0)%COLORS.length], fontSize:12 }}>
+                                {a.type?.name?.[0] || "?"}
+                              </Avatar>
+                            </Tooltip>
+                            <Typography variant="body2" sx={{ flex:1 }}>
+                              <b>{a.asset_tag}</b> · {a.brandRef?.name || a.brand || ""} {a.model || ""}
                             </Typography>
-                            <Divider sx={{ mb: 2, borderColor: "#fff", opacity: 0.2 }} />
-                            <Box sx={{ height: 220, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <Pie data={pieData} />
-                            </Box>
-                            <Box sx={{ mt: 2, display: "flex", flexWrap: "wrap", gap: 1 }}>
-                                {pieData.labels.map((label, i) => (
-                                    <Chip
-                                        key={label}
-                                        label={`${label} (${pieData.datasets[0].data[i]})`}
-                                        size="small"
-                                        sx={{
-                                            bgcolor: COLORS[i % COLORS.length],
-                                            color: "#fff",
-                                            fontWeight: 600,
-                                        }}
-                                    />
-                                ))}
-                            </Box>
-                        </CardContent>
+                            {statusChip(a.status)}
+                          </Stack>
+                        ))}
+                        {assets.length>3 &&
+                          <Typography variant="caption" sx={{ opacity:.6 }}>
+                            +{assets.length-3} más…
+                          </Typography>
+                        }
+                      </Stack>
                     </Card>
-                </Grid>
-                <Grid item xs={12} md={8}>
-                    <Card sx={{ borderRadius: 4, boxShadow: 4, minHeight: 340 }}>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom fontWeight={700}>
-                                Activos por Marca
-                            </Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            <Box sx={{ height: 220 }}>
-                                <Bar
-                                    data={barData}
-                                    options={{
-                                        responsive: true,
-                                        plugins: { legend: { display: false } },
-                                        scales: {
-                                            x: { grid: { display: false }, ticks: { font: { size: 13 } } },
-                                            y: { beginAtZero: true, grid: { color: "#e0e0e0" } },
-                                        },
-                                    }}
-                                />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                 {/* Activos por Usuario */}
-                <Grid item xs={12}>
-                    <Card sx={{ borderRadius: 4, boxShadow: 4, mt: 2, p: 1 }}>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom fontWeight={700}>
-                                Activos por Usuario
-                            </Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            <Grid container spacing={2}>
-                                {Object.entries(users).map(([user, assets]) => (
-                                    <Grid item xs={12} sm={6} md={4} lg={3} key={user}>
-                                        <Card
-                                            sx={{
-                                                bgcolor: user === "Sin asignar" ? "#fffbe6" : "#f5f5f5",
-                                                borderRadius: 3,
-                                                boxShadow: 2,
-                                                p: 2.5,
-                                                minHeight: 120,
-                                                borderLeft: user === "Sin asignar" ? "6px solid #E9C16C" : "6px solid #1976d2",
-                                            }}
-                                        >
-                                            <Typography
-                                                variant="subtitle1"
-                                                fontWeight={700}
-                                                gutterBottom
-                                                sx={{
-                                                    color: user === "Sin asignar" ? "#E9C16C" : "#1976d2",
-                                                    opacity: user === "Sin asignar" ? 0.7 : 1,
-                                                }}
-                                            >
-                                                {user === "Sin asignar" ? "— Sin asignar" : user}
-                                            </Typography>
-                                            <ul style={{ margin: 0, paddingLeft: 18 }}>
-                                                {assets.map((a) => (
-                                                    <li key={a.asset_tag} style={{ marginBottom: 4 }}>
-                                                        <Typography variant="body2" component="span">
-                                                            <b>{a.asset_tag}</b> - {a.type?.name} ({a.brand} {a.model})
-                                                        </Typography>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </Card>
-                                    </Grid>
-                                ))}
-                            </Grid>
-                        </CardContent>
-                    </Card>
-                </Grid>
+                  </Grid>
+                ))}
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
 
-                {/* Lista de Activos */}
-                <Grid item xs={12}>
-                    <Card sx={{ borderRadius: 4, boxShadow: 4, mt: 2, p: 1 }}>
-                        <CardContent>
-                            <Stack direction="row" alignItems="center" spacing={2} mb={2}>
-                                <Typography variant="h6" fontWeight={700}>
-                                    Lista de Activos
-                                </Typography>
-                                {loading && <CircularProgress size={22} color="primary" />}
-                                <Typography variant="body2" color="text.secondary" sx={{ ml: "auto" }}>
-                                    Total: <b>{rows.length}</b>
-                                </Typography>
-                            </Stack>
-                            <Divider sx={{ mb: 2 }} />
-                            <Grid container spacing={2}>
-                                {rows.length === 0 && !loading && (
-                                    <Grid item xs={12}>
-                                        <Typography color="text.secondary" align="center">
-                                            No hay activos para mostrar.
-                                        </Typography>
-                                    </Grid>
-                                )}
-                                {rows.map((a) => (
-                                    <Grid item xs={12} sm={6} md={4} lg={3} key={a.asset_tag}>
-                                        <Fade in timeout={400}>
-                                            <Card
-                                                sx={{
-                                                    bgcolor: "#f8fafc",
-                                                    borderRadius: 3,
-                                                    boxShadow: 2,
-                                                    p: 2.5,
-                                                    minHeight: 170,
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: 1,
-                                                    borderLeft: `6px solid ${COLORS[Math.abs(a.asset_tag.charCodeAt(0)) % COLORS.length]}`,
-                                                    transition: "transform 0.2s",
-                                                    "&:hover": {
-                                                        transform: "scale(1.04)",
-                                                        boxShadow: 6,
-                                                        borderLeftWidth: 10,
-                                                    },
-                                                }}
-                                            >
-                                                <Stack direction="row" alignItems="center" spacing={1}>
-                                                    <Tooltip title={a.type?.name || "Tipo"}>
-                                                        <Avatar
-                                                            sx={{
-                                                                bgcolor: COLORS[Math.abs(a.asset_tag.charCodeAt(0)) % COLORS.length],
-                                                                color: "#fff",
-                                                                width: 36,
-                                                                height: 36,
-                                                                fontWeight: 700,
-                                                            }}
-                                                        >
-                                                            {a.type?.name?.[0] || "?"}
-                                                        </Avatar>
-                                                    </Tooltip>
-                                                    <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
-                                                        {a.asset_tag}
-                                                    </Typography>
-                                                    <Chip
-                                                        label={a.status || "Desconocido"}
-                                                        size="small"
-                                                        color={statusColor(a.status)}
-                                                        sx={{ ml: "auto", fontWeight: 600 }}
-                                                    />
-                                                </Stack>
-                                                <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
-                                                    {a.type?.name}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {a.brand} {a.model}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary" display="block">
-                                                    SN: {a.serial_number}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                                    Usuario:{" "}
-                                                    <span style={{ color: a.current_assignment?.user ? "#1976d2" : "#E9C16C", opacity: a.current_assignment?.user ? 1 : 0.5 }}>
-                                                        {a.current_assignment?.user?.name ?? "—"}
-                                                    </span>
-                                                </Typography>
-                                            </Card>
-                                        </Fade>
-                                    </Grid>
-                                ))}
-                            </Grid>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-               
-                
-            </Grid>
-        </Box>
-    );
+        {/* Últimos activos (compacto) */}
+        <Grid item xs={12}>
+          <Card sx={{ borderRadius:3 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Typography variant="subtitle1" fontWeight={700}>Últimos activos</Typography>
+                <Typography variant="body2" sx={{ ml:"auto", opacity:.7 }}>
+                  Total: <b>{rows.length}</b>
+                </Typography>
+              </Stack>
+              <Divider sx={{ my:1.5 }} />
+              <Grid container spacing={1.5}>
+                {(loading ? Array.from({length:8}) : rows.slice(0,12)).map((a,i)=>(
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={a?.id || i}>
+                    {loading
+                      ? <Skeleton variant="rounded" height={88} />
+                      : <Card sx={{ p:1.5 }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Avatar sx={{ width:28, height:28, bgcolor:COLORS[(a.id||0)%COLORS.length], color:"#fff" }}>
+                              {a.type?.name?.[0] || "?"}
+                            </Avatar>
+                            <Box sx={{ flex:1 }}>
+                              <Typography variant="body2" fontWeight={700}>{a.asset_tag}</Typography>
+                              <Typography variant="caption" sx={{ opacity:.7 }}>
+                                {a.brandRef?.name || a.brand || "—"} {a.model || ""}
+                              </Typography>
+                              <Typography variant="caption" sx={{ display:"block", opacity:.7 }}>
+                                {a.current_assignment?.user?.name ?? "Sin usuario"}
+                              </Typography>
+                            </Box>
+                            {statusChip(a.status)}
+                          </Stack>
+                        </Card>
+                    }
+                  </Grid>
+                ))}
+                {!loading && rows.length===0 && (
+                  <Grid item xs={12}>
+                    <Typography align="center" sx={{ opacity:.7 }}>No hay activos para mostrar.</Typography>
+                  </Grid>
+                )}
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  );
 }

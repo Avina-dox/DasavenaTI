@@ -2,7 +2,7 @@
 import axios from "axios";
 
 // Cambia SOLO esta bandera cuando quieras trabajar en local
-const USE_LOCAL_API = true; // ← pon false para usar producción
+const USE_LOCAL_API = false; // ← pon false para usar producción
 
 const URLS = {
   LOCAL: "http://localhost/api", // ajusta si tu API local cambia
