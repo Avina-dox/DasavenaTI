@@ -1,5 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+// src/routes/App.jsx
+import React from "react";
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+
 import NavBar from "../components/Navbar.jsx";
 
 // Páginas
@@ -9,15 +12,14 @@ import Asignaciones from "../pages/Asignaciones";
 import Asignar from "../pages/Asignar";
 import Usuarios from "../pages/Usuarios";
 import UsuarioDetalle from "../pages/UsuarioDetalle";
-import Login from "../pages/Login";  // ya la tienes
-import Health from "../pages/Healt.jsx"; // opcional
-import Inicio from "../pages/Inicio.jsx"; //nueva pagina de inni
-import ActivoEditar from "../pages/ActivoEditar.jsx"; //Editar activos
-
+import Login from "../pages/Login";
+import Health from "../pages/Healt.jsx";
+import Inicio from "../pages/Inicio.jsx";
+import ActivoEditar from "../pages/ActivoEditar.jsx";
 
 function RequireAuth({ children }) {
-  const auth = useAuth();          // puede ser null si algo falla
-  if (!auth) return null;          // evita crasheo si no hay provider
+  const auth = useAuth();
+  if (!auth) return null;
   if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 }
@@ -31,9 +33,14 @@ function LayoutPrivate({ children }) {
   );
 }
 
+// Usa HashRouter en build (producción) para evitar 404 del servidor
+const Router = import.meta.env.PROD ? HashRouter : BrowserRouter;
+// Si quieres probar rápido, puedes forzar siempre HashRouter:
+// const Router = HashRouter;
+
 export default function AppRoutes() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
         {/* Pública */}
         <Route path="/login" element={<Login />} />
@@ -124,6 +131,6 @@ export default function AppRoutes() {
         {/* 404 */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
