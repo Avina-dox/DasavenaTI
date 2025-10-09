@@ -68,7 +68,7 @@ export default function ActivoEditar() {
   const brandName = data.brandRef?.name || data.brand || "";
 
   return (
-    <section className="max-w-5xl mx-auto p-6 space-y-6">
+    <section className="rounded-xl px-6 py-2 text-sm font-medium text-[#E9C16C] border border-[#E9C16C] bg-transparent hover:bg-[#E9C16C]/10 transition-all">
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#E9C16C]">{data.asset_tag}</h1>

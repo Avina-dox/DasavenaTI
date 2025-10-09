@@ -174,7 +174,7 @@ export default function NavBar() {
             className="h-20 w-20 "
           />
           <span className="hidden sm:inline text-2xl  pr-10 font-bold tracking-wide text-white drop-shadow-lg ">
-            Dasavena Activos TI 
+            Activos TI 
           </span>
         </NavLink>
 

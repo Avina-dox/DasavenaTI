@@ -179,7 +179,7 @@ export default function Asignar() {
     <section className="max-w-4xl space-y-6">
       <h1 className="text-lg font-semibold">Asignar activo</h1>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 rounded-xl px-6 py-2 text-sm font-medium text-[#E9C16C] border border-[#E9C16C] bg-transparent hover:bg-[#E9C16C]/10 transition-all">
         {/* Columna izquierda */}
         <div className="space-y-4">
           <AsyncSelect

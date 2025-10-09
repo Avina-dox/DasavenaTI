@@ -45,7 +45,7 @@ export default function Asignaciones() {
   };
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 ">
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#E9C16C] tracking-widest drop-shadow-lg">Historial de asignaciones</h1>

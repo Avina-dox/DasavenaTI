@@ -30,6 +30,9 @@ export default function Activos() {
   const [status, setStatus] = useState("");
   const [typeId, setTypeId] = useState("");
 
+  // nuevo: tamaño de página
+  const [perPage, setPerPage] = useState(20);
+
   const [loading, setLoading] = useState(false);
 
   // para debounce de búsqueda
@@ -43,14 +46,14 @@ export default function Activos() {
     setLoading(true);
     try {
       const { data } = await api.get("/assets", {
-        params: { q: qDebounced, status, type_id: typeId || undefined, page }
+        params: { q: qDebounced, status, type_id: typeId || undefined, page, per_page: perPage }
       });
       setRows(data.data || data);
       setMeta(data.meta || null);
     } finally {
       setLoading(false);
     }
-  }, [qDebounced, status, typeId]);
+  }, [qDebounced, status, typeId, perPage]);
 
   useEffect(() => {
     (async () => {
@@ -63,7 +66,11 @@ export default function Activos() {
     })();
   }, []);
 
+  // carga inicial y cuando cambien filtros con debounce
   useEffect(() => { fetchData(1); }, [fetchData]);
+
+  // cuando cambie perPage, volvemos a la página 1
+  useEffect(() => { fetchData(1); }, [perPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pages = useMemo(() => {
     if (!meta) return [1];
@@ -73,15 +80,16 @@ export default function Activos() {
   }, [meta]);
 
   return (
-    <section className="min-h-screen bg-gradient-to-br from-[#111318] via-[#1a1e2a] to-[#111318] py-10 px-4">
+    <section className="min-h-screen bg-gradient-to-br rounded-2xl from-[#484f61] via-[#1a1e2a] to-[#111318] py-10 px-4 md:px-8 lg:px-16">
       {/* Header / Filtros */}
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
         <div>
           <h1 className="text-4xl font-extrabold text-[#E9C16C] tracking-widest drop-shadow mb-1">Activos</h1>
           <p className="text-[#E9C16C]/70 text-sm">Gestión y seguimiento de activos tecnológicos</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end max-w-4xl w-full">
-          <div className="col-span-2">
+        {/* Aumentamos a 5 columnas para agregar "Por página" */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end max-w-5xl w-full">
+          <div className="md:col-span-2">
             <label className="text-xs text-[#E9C16C]/70">Buscar</label>
             <input
               placeholder="Tag / Serie / Marca / Modelo"
@@ -115,7 +123,22 @@ export default function Activos() {
               {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
-          <div className="md:col-span-4 flex justify-between">
+
+          {/* Nuevo: Por página */}
+          <div>
+            <label className="text-xs text-[#E9C16C]/70">Por página</label>
+            <select
+              value={perPage}
+              onChange={(e) => setPerPage(Number(e.target.value))}
+              className="w-full rounded-2xl bg-[#23263a] px-4 py-2 text-sm text-[#E9C16C] ring-2 ring-[#E9C16C]/30 focus:ring-[#E9C16C] transition"
+            >
+              {[12, 20, 30, 40, 50, 100].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="md:col-span-5 flex justify-between">
             <button
               onClick={() => fetchData(1)}
               className="rounded-2xl border border-[#E9C16C] px-4 py-2 text-sm text-[#181A20] bg-gradient-to-r from-[#D6A644] to-[#E9C16C] shadow-md hover:scale-105 transition font-semibold"
@@ -133,7 +156,7 @@ export default function Activos() {
       </header>
 
       {/* Grid de cards */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
         {loading && (
           <div className="col-span-full flex justify-center items-center py-16">
             <span className="text-[#E9C16C]/70 animate-pulse text-lg">Cargando…</span>
@@ -219,7 +242,6 @@ export default function Activos() {
                 >
                   Ver
                 </Link>
-
 
                 {invoiceUrl ? (
                   <a

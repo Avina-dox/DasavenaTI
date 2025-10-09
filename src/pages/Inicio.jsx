@@ -26,20 +26,41 @@ export default function Inicio(){
   const [q, setQ] = useState("");
   const [tab, setTab] = useState(0); // 0=Todos, 1=Disponibles, 2=Asignados, 3=Reparación, 4=Baja
 
-  // cargar activos
+  // -------- fetch con acumulación de TODAS las páginas --------
   const fetchData = async () => {
     setLoading(true);
     try {
-      const params = {};
-      if (q) params.q = q;
-      if (tab === 1) params.status = "in_stock";
-      if (tab === 2) params.status = "assigned";
-      if (tab === 3) params.status = "repair";
-      if (tab === 4) params.status = "retired";
-      const { data } = await api.get("/assets", { params });
-      setRows(data.data || data);
-    } finally { setLoading(false); }
+      const base = {};
+      if (q) base.q = q;
+      if (tab === 1) base.status = "in_stock";
+      if (tab === 2) base.status = "assigned";
+      if (tab === 3) base.status = "repair";
+      if (tab === 4) base.status = "retired";
+
+      const per_page = 200;           // pide lotes grandes
+      let page = 1;
+      let all = [];
+      let guard = 0;                  // evita bucles infinitos
+
+      while (true) {
+        const { data } = await api.get("/assets", { params: { ...base, page, per_page }});
+        const items = data?.data || data || [];
+        all = all.concat(items);
+
+        const meta = data?.meta;
+        if (!meta || meta.current_page >= meta.last_page) break;
+
+        page = meta.current_page + 1;
+        guard++;
+        if (guard > 200) break;      // safety net (200 páginas máx)
+      }
+
+      setRows(all);
+    } finally {
+      setLoading(false);
+    }
   };
+  // ------------------------------------------------------------
 
   useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [tab]);
   useEffect(() => {
@@ -94,7 +115,6 @@ export default function Inicio(){
       if(!map.has(user)) map.set(user, []);
       map.get(user).push(a);
     });
-    // ordena por cantidad desc
     return Array.from(map.entries()).sort((a,b)=>b[1].length - a[1].length);
   }, [rows]);
 
