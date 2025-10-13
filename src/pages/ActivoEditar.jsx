@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api, { storagePublicUrl } from "../lib/api";
 import { isPhoneType } from "../utils/isPhoneType";
+import { QRCodeCanvas } from "qrcode.react";
 
 const money = (n) =>
   (n ?? 0).toLocaleString(undefined, {
@@ -38,6 +39,9 @@ export default function ActivoEditar() {
   const [brands, setBrands] = useState([]);
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState(null);
+
+  // QR
+  const [showQR, setShowQR] = useState(false);
 
   // toast state
   const [toast, setToast] = useState({ show: false, msg: "", type: "success" });
@@ -134,6 +138,77 @@ export default function ActivoEditar() {
   const brandName = data.brandRef?.name || data.brand || "";
   const isPhone = isPhoneType(data.type_id, types);
 
+  /* ---- QR helpers (usar brandName ya definido) ---- */
+  const qrData =
+    data && {
+      v: 1,
+      id: data.id,
+      tag: data.asset_tag,
+      type: data.type?.name || "",
+      brand: brandName,
+      model: data.model || "",
+      serial: data.serial_number || "",
+      status: data.status || "",
+      url: `${window.location.origin}/a/${data.id}`,
+    };
+  const qrString = JSON.stringify(qrData);
+
+  // descarga PNG del QR
+  const downloadQR = () => {
+    const canvas = document.getElementById("asset-qr-canvas");
+    if (!canvas) return;
+    const pngUrl = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = pngUrl;
+    a.download = `${data.asset_tag}-QR.png`;
+    a.click();
+  };
+
+  // imprime una etiqueta sencilla 50x30 mm
+  const printLabel = () => {
+    const w = window.open("", "_blank", "width=400,height=600");
+    if (!w) return;
+    const qrPng = document
+      .getElementById("asset-qr-canvas")
+      ?.toDataURL("image/png");
+    w.document.write(`
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${data.asset_tag} – Etiqueta</title>
+          <style>
+            @page { size: 50mm 30mm; margin: 0; }
+            body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; }
+            .label {
+              width: 50mm; height: 30mm;
+              display: grid; grid-template-columns: 1fr 1.4fr; gap: 4mm;
+              align-items: center; padding: 3mm;
+            }
+            .qr { display:flex; align-items:center; justify-content:center; }
+            .meta { font-size: 10px; line-height: 1.2; }
+            .meta b { font-size: 11px; }
+            .tag { font-weight: 800; font-size: 12px; margin-bottom: 2px; }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <div class="qr">
+              <img src="${qrPng}" style="width: 22mm; height: 22mm;" />
+            </div>
+            <div class="meta">
+              <div class="tag">${data.asset_tag}</div>
+              <div>${data.type?.name || "—"} • ${brandName || "—"}</div>
+              <div>${data.model || "—"}</div>
+              <div>SN: ${data.serial_number || "—"}</div>
+            </div>
+          </div>
+          <script>window.print(); setTimeout(()=>window.close(), 300);</script>
+        </body>
+      </html>
+    `);
+    w.document.close();
+  };
+
   return (
     <>
       <Toast show={toast.show} type={toast.type}>
@@ -147,6 +222,12 @@ export default function ActivoEditar() {
             <p className="opacity-70">Detalle y edición del activo</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowQR(true)}
+              className="rounded-xl bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
+            >
+              QR
+            </button>
             <button
               onClick={() => nav(`/asignar?asset=${data.id}`)}
               className="rounded-xl border border-[#E9C16C] bg-gradient-to-r from-[#D6A644] to-[#E9C16C] px-3 py-1.5 text-sm text-[#181A20]"
@@ -399,6 +480,61 @@ export default function ActivoEditar() {
           </div>
         </form>
       </section>
+
+      {/* Modal QR */}
+      {showQR && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowQR(false)}
+          />
+          {/* Card */}
+          <div className="relative z-10 w-[min(90vw,520px)] rounded-2xl bg-[#111318] border border-[#E9C16C]/25 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[#E9C16C] font-semibold">
+                Código QR – {data.asset_tag}
+              </h3>
+              <button
+                className="text-sm bg-white/10 px-2 py-1 rounded hover:bg-white/20"
+                onClick={() => setShowQR(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center gap-3 py-2">
+              <QRCodeCanvas
+                id="asset-qr-canvas"
+                value={`${window.location.origin}/a/${data.id}`}
+                size={256}
+                level="M"
+                includeMargin
+                style={{ background: "white", padding: 8, borderRadius: 8 }}
+              />
+              <p className="text-xs text-[#E9C16C]/70 text-center">
+                Contiene: tag, tipo, marca, modelo, serie, estado y un enlace de
+                vuelta ({window.location.origin}).
+              </p>
+            </div>
+
+            <div className="mt-4 flex gap-2 justify-end">
+              <button
+                onClick={downloadQR}
+                className="rounded-xl bg-white/10 hover:bg-white/20 px-3 py-1.5 text-sm"
+              >
+                Descargar PNG
+              </button>
+              <button
+                onClick={printLabel}
+                className="rounded-xl border border-[#E9C16C] bg-gradient-to-r from-[#D6A644] to-[#E9C16C] px-3 py-1.5 text-sm text-[#181A20]"
+              >
+                Imprimir etiqueta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

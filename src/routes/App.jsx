@@ -17,6 +17,8 @@ import Health from "../pages/Healt.jsx";
 import Inicio from "../pages/Inicio.jsx";
 import ActivoEditar from "../pages/ActivoEditar.jsx";
 
+import PublicAsset from "../pages/PublicAsset.jsx";
+
 function RequireAuth({ children }) {
   const auth = useAuth();
   if (!auth) return null;
@@ -43,6 +45,7 @@ export default function AppRoutes() {
     <Router>
       <Routes>
         {/* Pública */}
+        <Route path="/a/:id" element={<PublicAsset />} />
         <Route path="/login" element={<Login />} />
         <Route path="/health" element={<Health />} />
 
