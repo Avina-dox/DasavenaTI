@@ -9,7 +9,11 @@ const URLS = {
   PROD: import.meta.env.VITE_API_BASE ?? "https://dasavenasite.domcloud.dev/api",
 };
 
-export const API_BASE = USE_LOCAL_API ? URLS.LOCAL : URLS.PROD;
+const envBase = import.meta.env.VITE_API_BASE; // .env
+const PROD_BASE = envBase && envBase.trim() ? envBase : URLS.PROD;
+
+// Asegura que no termine con "/"
+export const API_BASE = (USE_LOCAL_API ? URLS.LOCAL : PROD_BASE).replace(/\/$/, "");
 
 const api = axios.create({ baseURL: API_BASE });
 
@@ -39,16 +43,13 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err?.response?.status === 401) {
-      // Token inválido / sesión expirada
       clearToken();
-      // Opcional: redirigir a login
-      // window.location.href = "/login";
+      // window.location.href = "/login"; // opcional
     }
     return Promise.reject(err);
   }
 );
 
-// --- Helper para URLs públicas de /storage ---
 /**
  * Convierte un path de storage (p.ej. "invoices/archivo.pdf")
  * en una URL pública correcta, eliminando el sufijo "/api" de API_BASE.
@@ -57,9 +58,13 @@ api.interceptors.response.use(
 export const storagePublicUrl = (path) => {
   if (!path) return null;
   if (/^https?:\/\//i.test(path)) return path; // ya es URL completa
-  const siteBase = API_BASE.replace(/\/api\/?$/,'').replace(/\/$/,''); // http(s)://host[:puerto]
+
+  // http(s)://host[:puerto]
+  const siteBase = API_BASE.replace(/\/api\/?$/, "").replace(/\/$/, "");
+
   // Normaliza por si te pasan "storage/..." o "/storage/..."
-  const clean = String(path).replace(/^\/?storage\/?/,'');
+  const clean = String(path).replace(/^\/?storage\/?/, "");
+
   return `${siteBase}/storage/${clean}`;
 };
 
