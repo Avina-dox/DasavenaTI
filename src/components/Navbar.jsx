@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-
+import { useTheme } from "@mui/material/styles";               // ← para saber si está dark/light
+import { useColorMode } from "../components/ThemeProvider.jsx"; // ← toggle del tema
 
 // Minimalist modern button base styles (no gradients)
 const linkBase =
@@ -38,7 +39,6 @@ function DesktopDropdown({ label, items }) {
   }, []);
 
   const handleButtonClick = () => setOpen((v) => !v);
-
   const handleOptionClick = () => setOpen(false);
 
   return (
@@ -94,6 +94,11 @@ export default function NavBar() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
+
+  // tema
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const { toggle } = useColorMode();   // ← alterna entre claro/oscuro
 
   useEffect(() => {
     setMobileOpen(false);
@@ -184,7 +189,34 @@ export default function NavBar() {
           <DesktopDropdown label="Activos" items={activosMenu} />
           <DesktopDropdown label="Asignaciones" items={asignacionesMenu} />
           <TopLink to="/reportes">Reportes</TopLink>
+
+          {/* Perfil / Toggle / Logout */}
           <div className="ml-1 flex items-center gap-4">
+            {/* Botón de modo claro/oscuro */}
+            <button
+              onClick={toggle}
+              title={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/30 px-3 py-2 text-white hover:bg-white/10 transition-all shadow"
+            >
+              {isDark ? (
+                <>
+                  {/* Ícono Sol (pasar a claro) */}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10-9h-2v3h2V4zm7.04-.95l-1.41-1.41-1.79 1.8 1.41 1.41 1.79-1.8zM17 11h3v2h-3v-2zm-5 5a4 4 0 100-8 4 4 0 000 8zm4.24 3.16l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM13 20h-2v3h2v-3zM4.24 17.66l-1.79 1.8 1.41 1.41 1.8-1.79-1.42-1.42z" />
+                  </svg>
+                  <span className="text-sm">Claro</span>
+                </>
+              ) : (
+                <>
+                  {/* Ícono Luna (pasar a oscuro) */}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.74 2a9 9 0 108.52 12.06A7 7 0 0112.74 2z" />
+                  </svg>
+                  <span className="text-sm">Oscuro</span>
+                </>
+              )}
+            </button>
+
             <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 shadow-inner border border-[#E9C16C]/30">
               <div className="grid h-10 w-10 place-content-center rounded-full bg-[#E9C16C] text-[#6A2C75] text-lg font-bold shadow">
                 {(user?.name ?? "U").slice(0, 1).toUpperCase()}
@@ -223,6 +255,30 @@ export default function NavBar() {
       >
         <nav className="mx-auto flex max-w-7xl flex-col gap-3 px-4 pb-4">
           <TopLink to="/">Inicio</TopLink>
+
+          {/* Botón de tema también en móvil */}
+          <button
+            onClick={toggle}
+            title={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#E9C16C]/40 bg-white px-4 py-2 text-[#6A2C75] hover:bg-[#F5F5F5] transition-all shadow"
+          >
+            {isDark ? (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10-9h-2v3h2V4zm7.04-.95l-1.41-1.41-1.79 1.8 1.41 1.41 1.79-1.8zM17 11h3v2h-3v-2zm-5 5a4 4 0 100-8 4 4 0 000 8zm4.24 3.16l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM13 20h-2v3h2v-3zM4.24 17.66l-1.79 1.8 1.41 1.41 1.8-1.79-1.42-1.42z" />
+                </svg>
+                <span className="text-sm font-medium">Modo claro</span>
+              </>
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.74 2a9 9 0 108.52 12.06A7 7 0 0112.74 2z" />
+                </svg>
+                <span className="text-sm font-medium">Modo oscuro</span>
+              </>
+            )}
+          </button>
+
           {/* Grupos móviles */}
           <div className="rounded-xl border border-[#E9C16C]/20 bg-white/90 backdrop-blur-lg shadow-lg">
             <p className="px-4 pt-4 text-xs font-bold uppercase tracking-wide text-[#6A2C75]/80">Activos</p>
@@ -246,6 +302,7 @@ export default function NavBar() {
               ))}
             </div>
           </div>
+
           <div className="rounded-xl border border-[#E9C16C]/20 bg-white/90 backdrop-blur-lg shadow-lg">
             <p className="px-4 pt-4 text-xs font-bold uppercase tracking-wide text-[#6A2C75]/80">Asignaciones</p>
             <div className="p-2">
@@ -268,6 +325,7 @@ export default function NavBar() {
               ))}
             </div>
           </div>
+
           {/* Perfil + logout */}
           <div className="mt-3 flex items-center justify-between rounded-xl border border-[#E9C16C]/40 bg-white px-5 py-4 shadow-lg">
             <div className="flex items-center gap-4">
