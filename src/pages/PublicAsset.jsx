@@ -79,7 +79,7 @@ export default function PublicAsset() {
   const isPhone = typeName.includes("tel") || isPhoneType(asset.type_id, types);
 
   const invoiceUrl = storagePublicUrl(asset.invoice_path);
-  const qrValue = `${window.location.origin}/a/${asset.id}`;
+  const qrValue = `${window.location.origin}/#/a/${asset.id}`;
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-[#151823] via-[#0f121a] to-[#0b0e14] py-10 px-4 md:px-8">

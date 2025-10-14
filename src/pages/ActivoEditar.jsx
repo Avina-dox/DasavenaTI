@@ -138,7 +138,8 @@ export default function ActivoEditar() {
   const brandName = data.brandRef?.name || data.brand || "";
   const isPhone = isPhoneType(data.type_id, types);
 
-  /* ---- QR helpers (usar brandName ya definido) ---- */
+  /* ---- QR helpers ---- */
+  const qrLink = `${window.location.origin}/#/a/${data.id}`; // <- única fuente de verdad
   const qrData =
     data && {
       v: 1,
@@ -149,9 +150,9 @@ export default function ActivoEditar() {
       model: data.model || "",
       serial: data.serial_number || "",
       status: data.status || "",
-      url: `${window.location.origin}/a/${data.id}`,
+      url: qrLink,
     };
-  const qrString = JSON.stringify(qrData);
+  const qrString = JSON.stringify(qrData); // (si lo usas en otro lado; si no, podrías eliminarlo)
 
   // descarga PNG del QR
   const downloadQR = () => {
@@ -168,9 +169,7 @@ export default function ActivoEditar() {
   const printLabel = () => {
     const w = window.open("", "_blank", "width=400,height=600");
     if (!w) return;
-    const qrPng = document
-      .getElementById("asset-qr-canvas")
-      ?.toDataURL("image/png");
+    const qrPng = document.getElementById("asset-qr-canvas")?.toDataURL("image/png");
     w.document.write(`
       <html>
         <head>
@@ -506,16 +505,37 @@ export default function ActivoEditar() {
             <div className="flex flex-col items-center gap-3 py-2">
               <QRCodeCanvas
                 id="asset-qr-canvas"
-                value={`${window.location.origin}/a/${data.id}`}
+                value={qrLink}             // <-- usa la misma URL
                 size={256}
                 level="M"
                 includeMargin
                 style={{ background: "white", padding: 8, borderRadius: 8 }}
               />
-              <p className="text-xs text-[#E9C16C]/70 text-center">
-                Contiene: tag, tipo, marca, modelo, serie, estado y un enlace de
-                vuelta ({window.location.origin}).
-              </p>
+
+              {/* leyenda con la URL pública + copiar */}
+              <div className="text-center text-xs text-[#E9C16C]/80 max-w-full break-words">
+                <div className="opacity-70 mb-1">
+                  Contiene tag, tipo, marca, modelo, serie, estado y un enlace de vuelta.
+                </div>
+                <div className="flex items-center gap-2 justify-center flex-wrap">
+                  <a
+                    href={qrLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono underline break-all"
+                  >
+                    {qrLink}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(qrLink)}
+                    className="rounded bg-white/10 px-2 py-0.5 hover:bg-white/20"
+                    title="Copiar enlace"
+                  >
+                    Copiar
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="mt-4 flex gap-2 justify-end">
