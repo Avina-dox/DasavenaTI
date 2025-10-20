@@ -227,12 +227,16 @@ export default function ActivoEditar() {
             >
               QR
             </button>
-            <button
-              onClick={() => nav(`/asignar?asset=${data.id}`)}
-              className="rounded-xl border border-[#E9C16C] bg-gradient-to-r from-[#D6A644] to-[#E9C16C] px-3 py-1.5 text-sm text-[#181A20]"
-            >
-              Asignar
-            </button>
+
+            {data.status !== "assigned" && (
+              <button
+                onClick={() => nav(`/asignar?asset=${data.id}`)}
+                className="rounded-xl border border-[#E9C16C] bg-gradient-to-r from-[#D6A644] to-[#E9C16C] px-3 py-1.5 text-sm text-[#181A20]"
+              >
+                Asignar
+              </button>
+            )}
+
             <button
               onClick={() => nav(-1)}
               className="rounded-xl bg-white/10 px-3 py-1.5 text-sm"
@@ -480,7 +484,7 @@ export default function ActivoEditar() {
         </form>
       </section>
 
-      {/* Modal QR */}
+      {/* Modal QR */} 
       {showQR && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
