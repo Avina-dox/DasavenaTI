@@ -1,10 +1,15 @@
+// src/pages/Asignar.jsx
 import { useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
 import { useSearchParams } from "react-router-dom";
 
+/* ====== helpers ====== */
 function useDebounce(value, ms = 300) {
   const [v, setV] = useState(value);
-  useEffect(() => { const id = setTimeout(() => setV(value), ms); return () => clearTimeout(id); }, [value, ms]);
+  useEffect(() => {
+    const id = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
   return v;
 }
 
@@ -87,17 +92,22 @@ function AsyncSelect({ label, placeholder, fetcher, mapper, onSelect, valueLabel
   );
 }
 
+/* ====== pantalla ====== */
 export default function Asignar() {
   const [searchParams] = useSearchParams();
 
+  // usuario
   const [usuario, setUsuario] = useState(null);
-  const [activo, setActivo] = useState(null);
-  const [detalle, setDetalle] = useState(null);
-  const [noti, setNoti] = useState({ type: "", msg: "" });
-  const [loading, setLoading] = useState(false);
-
-  // ======= Precarga usuario desde ?user=ID (&n=Nombre opcional) =======
   const pendingName = searchParams.get("n") || "";
+
+  // notificaciones
+  const [noti, setNoti] = useState({ type: "", msg: "" });
+  const notify = (msg, type = "ok", ms = 3500) => {
+    setNoti({ type, msg });
+    setTimeout(() => setNoti({ type: "", msg: "" }), ms);
+  };
+
+  // ======= precarga usuario desde ?user=ID (&n=Nombre opcional) =======
   useEffect(() => {
     const uid = searchParams.get("user");
     if (!uid) return;
@@ -105,83 +115,149 @@ export default function Asignar() {
     let ignore = false;
     (async () => {
       try {
-        // 1) intenta /users/:id si existe
         const { data } = await api.get(`/users/${uid}`);
         if (!ignore) setUsuario(data);
       } catch {
         try {
-          // 2) fallback a /users?search=uid y filtra por id exacto
           const { data } = await api.get("/users", { params: { search: uid } });
           const list = data.data || data;
           const found = list.find((u) => String(u.id) === String(uid));
           if (!ignore && found) setUsuario(found);
-        } catch {
-          /* sin selección si falla */
-        }
+        } catch {}
       }
     })();
 
     return () => { ignore = true; };
   }, [searchParams]);
 
-  // ======= Detalle del activo elegido =======
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      if (!activo?.id) { setDetalle(null); return; }
-      try {
-        const { data } = await api.get(`/assets/${activo.id}`);
-        if (!ignore) setDetalle(data);
-      } catch {
-        if (!ignore) setDetalle(null);
-      }
-    })();
-    return () => { ignore = true; };
-  }, [activo?.id]);
-
-  // Fetchers
-  const fetchActivos = useMemo(() => async (term) => {
-    const { data } = await api.get("/assets", { params: { status: "in_stock", q: term } });
-    return data.data || data;
-  }, []);
-
+  // ======= buscadores =======
   const fetchUsuarios = useMemo(() => async (term) => {
     const { data } = await api.get("/users", { params: { search: term } });
     return data.data || data;
   }, []);
 
-  // Asignar
-  const asignar = async () => {
-    if (!usuario?.id || !activo?.id) return;
-    setLoading(true);
-    setNoti({ type: "", msg: "" });
+  // ======= filtros / tabla de activos (multi) =======
+  const [q, setQ] = useState("");
+  const qDebounced = useDebounce(q, 350);
+  const [typeId, setTypeId] = useState("");
+  const [types, setTypes] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [meta, setMeta] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [perPage, setPerPage] = useState(20);
+
+  // selección múltiple
+  const [selected, setSelected] = useState(() => new Set()); // ids
+
+  // cargar tipos
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get("/asset-types");
+        setTypes(data || []);
+      } catch {
+        setTypes([]);
+      }
+    })();
+  }, []);
+
+  // fetch de activos disponibles
+  const fetchAssets = useMemo(
+    () => async (page = 1) => {
+      setLoading(true);
+      try {
+        const { data } = await api.get("/assets", {
+          params: {
+            status: "in_stock",
+            q: qDebounced || undefined,
+            type_id: typeId || undefined,
+            page,
+            per_page: perPage,
+          },
+        });
+        const arr = data.data || data;
+        setRows(arr);
+        setMeta(data.meta || null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [qDebounced, typeId, perPage]
+  );
+
+  useEffect(() => { fetchAssets(1); }, [fetchAssets]);
+
+  // paginación (simple — vecinos y extremos)
+  const pages = (() => {
+    if (!meta) return [1];
+    const total = meta.last_page, cur = meta.current_page;
+    const arr = new Set([1, 2, cur - 1, cur, cur + 1, total - 1, total].filter(n => n >= 1 && n <= total));
+    return Array.from(arr).sort((a, b) => a - b);
+  })();
+
+  // helpers selección
+  const toggleOne = (id) => {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const pageIds = rows.map(r => r.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every(id => selected.has(id));
+  const togglePage = () => {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (allOnPageSelected) pageIds.forEach(id => next.delete(id));
+      else pageIds.forEach(id => next.add(id));
+      return next;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
+
+  // ======= asignación masiva =======
+  const onAssign = async () => {
+    if (!usuario?.id) return notify("Selecciona un usuario.", "err");
+    if (selected.size === 0) return notify("No hay activos seleccionados.", "err");
+
+    const ids = Array.from(selected);
+    if (!confirm(`Asignar ${ids.length} activo(s) a ${usuario.name}?`)) return;
+
     try {
-      await api.post("/assignments", {
-        asset_id: Number(activo.id),
-        user_id: Number(usuario.id),
-        condition_out: "good",
-        notes: "Entrega desde panel",
-      });
-      setNoti({ type: "ok", msg: "✅ Asignación realizada" });
-      setUsuario(null); setActivo(null); setDetalle(null);
+      const results = await Promise.allSettled(
+        ids.map((asset_id) =>
+          api.post("/assignments", {
+            user_id: Number(usuario.id),
+            asset_id: Number(asset_id),
+            condition_out: "good",
+            notes: "Entrega desde panel (asignación múltiple)",
+          })
+        )
+      );
+      const ok = results.filter(r => r.status === "fulfilled").length;
+      const fail = results.length - ok;
+
+      if (ok > 0) notify(`Asignados ${ok} activo(s).`, "ok");
+      if (fail > 0) notify(`Fallaron ${fail} asignación(es).`, "err", 4500);
+
+      clearSelection();
+      fetchAssets(meta?.current_page || 1);
     } catch (e) {
-      const msg = e?.response?.data?.message || "No se pudo asignar. Verifica que el activo esté disponible.";
-      setNoti({ type: "err", msg });
-    } finally {
-      setLoading(false);
-      setTimeout(() => setNoti({ type: "", msg: "" }), 4000);
+      console.error(e?.response || e);
+      notify("No se completó la asignación.", "err");
     }
   };
 
-  const activoOcupado = detalle && detalle.status && detalle.status !== "in_stock";
+  const fmtDate = (s) => (s ? String(s).slice(0, 10) : "—");
 
   return (
-    <section className="max-w-4xl space-y-6">
+    <section className="max-w-6xl space-y-6">
       <h1 className="text-lg font-semibold">Asignar activo</h1>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 rounded-xl px-6 py-2 text-sm font-medium text-[#E9C16C] border border-[#E9C16C] bg-transparent hover:bg-[#E9C16C]/10 transition-all">
-        {/* Columna izquierda */}
-        <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 rounded-xl px-6 py-2 text-sm font-medium text-[#E9C16C] border border-[#E9C16C] bg-transparent hover:bg-[#E9C16C]/10 transition-all">
+        {/* Columna izquierda: usuario + filtros */}
+        <div className="space-y-4 lg:col-span-1">
           <AsyncSelect
             label="Usuario"
             placeholder="Nombre, correo…"
@@ -196,67 +272,178 @@ export default function Asignar() {
             valueLabel={
               usuario
                 ? `${usuario.name || usuario.nombre} (${usuario.email})`
-                : pendingName /* provisional si llegó ?n= */
+                : pendingName
             }
           />
 
-          <AsyncSelect
-            label="Activo disponible"
-            placeholder="Tag, marca, modelo, serie…"
-            fetcher={fetchActivos}
-            mapper={(a) => ({
-              id: a.id,
-              title: `${a.asset_tag} · ${a.brand ?? ""} ${a.model ?? ""}`.trim(),
-              subtitle: `${a.type?.name ?? ""}${a.serial_number ? ` · SN: ${a.serial_number}` : ""}`,
-              right: a.condition,
-            })}
-            onSelect={setActivo}
-            valueLabel={
-              activo ? `${activo.asset_tag} · ${activo.brand ?? ""} ${activo.model ?? ""}` : ""
-            }
-          />
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <h3 className="font-semibold mb-2">Buscar activos disponibles</h3>
 
-          <div className="flex gap-2">
-            <button
-              onClick={asignar}
-              disabled={!usuario || !activo || loading || activoOcupado}
-              className="rounded-xl border border-[#E9C16C] px-4 py-2 text-sm text-black bg-gradient-to-r from-[#D6A644] to-[#E9C16C] disabled:opacity-60"
-            >
-              {loading ? "Asignando…" : "Asignar"}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setUsuario(null); setActivo(null); setDetalle(null); }}
-              className="rounded-xl bg-white/10 px-4 py-2 text-sm"
-            >
-              Limpiar
-            </button>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Tag / Serie / Marca / Modelo"
+              className="w-full rounded-xl bg-[#23263a] px-3 py-2 text-sm mb-2"
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={typeId}
+                onChange={(e) => setTypeId(e.target.value)}
+                className="w-full rounded-xl bg-[#23263a] px-3 py-2 text-sm"
+              >
+                <option value="">Todos los tipos</option>
+                {types.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+
+              <select
+                value={perPage}
+                onChange={(e) => setPerPage(Number(e.target.value))}
+                className="w-full rounded-xl bg-[#23263a] px-3 py-2 text-sm"
+              >
+                {[12, 20, 30, 40, 50, 100].map(n => (
+                  <option key={n} value={n}>{n} / pág</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => fetchAssets(1)}
+                className="rounded-xl border border-[#E9C16C] bg-gradient-to-r from-[#D6A644] to-[#E9C16C] px-3 py-1.5 text-sm text-[#181A20]"
+              >
+                Filtrar
+              </button>
+              <button
+                onClick={() => { setQ(""); setTypeId(""); fetchAssets(1); }}
+                className="rounded-xl bg-white/10 px-3 py-1.5 text-sm"
+              >
+                Limpiar
+              </button>
+            </div>
           </div>
 
-          {noti.msg && (
-            <div className={`rounded-xl px-3 py-2 text-sm ${noti.type === "ok" ? "bg-green-500/20 text-green-200" : "bg-red-500/20 text-red-200"}`}>
-              {noti.msg}
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <h3 className="font-semibold mb-2">Acciones</h3>
+            <p className="text-sm text-[#E9C16C]/80 mb-3">
+              Seleccionados: <b>{selected.size}</b>
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={onAssign}
+                className="rounded-xl border border-[#E9C16C] bg-gradient-to-r from-[#D6A644] to-[#E9C16C] px-3 py-1.5 text-sm text-[#181A20] disabled:opacity-60"
+                disabled={!usuario || selected.size === 0}
+              >
+                Asignar {selected.size > 0 ? `(${selected.size})` : ""}
+              </button>
+              <button
+                onClick={clearSelection}
+                className="rounded-xl bg-white/10 px-3 py-1.5 text-sm disabled:opacity-60"
+                disabled={selected.size === 0}
+              >
+                Limpiar selección
+              </button>
             </div>
-          )}
+
+            {noti.msg && (
+              <div className={`mt-3 rounded-xl px-3 py-2 text-sm ${noti.type === "ok" ? "bg-green-500/20 text-green-200" : "bg-red-500/20 text-red-200"}`}>
+                {noti.msg}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Columna derecha: ficha */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <h2 className="mb-3 font-semibold">Ficha del activo</h2>
-          {!detalle && <p className="opacity-70 text-sm">Selecciona un activo…</p>}
-          {detalle && (
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="opacity-70">Tag</span><span className="font-mono">{detalle.asset_tag}</span></div>
-              <div className="flex justify-between"><span className="opacity-70">Tipo</span><span>{detalle.type?.name ?? "—"}</span></div>
-              <div className="flex justify-between"><span className="opacity-70">Marca / Modelo</span><span>{[detalle.brand, detalle.model].filter(Boolean).join(" / ") || "—"}</span></div>
-              <div className="flex justify-between"><span className="opacity-70">Serie</span><span>{detalle.serial_number || "—"}</span></div>
-              <div className="flex justify-between"><span className="opacity-70">Condición</span><span>{detalle.condition}</span></div>
-              <div className="flex justify-between"><span className="opacity-70">Estado</span><span className={activoOcupado ? "text-red-300" : ""}>{detalle.status}</span></div>
-              {detalle.currentAssignment?.user && (
-                <div className="rounded-xl bg-red-500/10 p-2 text-red-200">
-                  Ya asignado a: <b>{detalle.currentAssignment.user.name}</b>
-                </div>
-              )}
+        {/* Columna derecha: tabla */}
+        <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold">Activos disponibles</h3>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={pageIds.length > 0 && allOnPageSelected}
+                onChange={togglePage}
+              />
+              <span className="text-sm">Seleccionar página</span>
+            </label>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-white/10">
+            <table className="min-w-full text-sm">
+              <thead className="bg-white/5">
+                <tr className="text-left">
+                  <th className="p-3"></th>
+                  <th className="p-3">Tag</th>
+                  <th className="p-3">Tipo</th>
+                  <th className="p-3">Marca / Modelo</th>
+                  <th className="p-3">Serie</th>
+                  <th className="p-3">Compra</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr><td colSpan={6} className="p-6 text-center opacity-70">Cargando…</td></tr>
+                )}
+
+                {!loading && rows.length === 0 && (
+                  <tr><td colSpan={6} className="p-6 text-center opacity-50">Sin resultados</td></tr>
+                )}
+
+                {!loading && rows.map((a) => {
+                  const brandName = a.brandRef?.name || a.brand || "";
+                  return (
+                    <tr key={a.id} className="border-t border-white/10 hover:bg-white/5">
+                      <td className="p-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(a.id)}
+                          onChange={() => toggleOne(a.id)}
+                        />
+                      </td>
+                      <td className="p-3 font-mono">{a.asset_tag}</td>
+                      <td className="p-3">{a.type?.name ?? "—"}</td>
+                      <td className="p-3">{[brandName, a.model].filter(Boolean).join(" / ") || "—"}</td>
+                      <td className="p-3">{a.serial_number || "—"}</td>
+                      <td className="p-3">{fmtDate(a.purchase_date)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* paginación */}
+          {meta && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-xs opacity-70">
+                Mostrando {meta.from ?? 0}-{meta.to ?? 0} de {meta.total ?? 0}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => fetchAssets(Math.max(1, meta.current_page - 1))}
+                  disabled={meta.current_page <= 1}
+                  className="rounded-xl bg-white/10 px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  ← Anterior
+                </button>
+                {pages.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => fetchAssets(p)}
+                    className={`rounded-xl px-3 py-1.5 text-sm ${p === meta.current_page ? "bg-white/20" : "bg-white/10 hover:bg-white/20"}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => fetchAssets(Math.min(meta.last_page, meta.current_page + 1))}
+                  disabled={meta.current_page >= meta.last_page}
+                  className="rounded-xl bg-white/10 px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  Siguiente →
+                </button>
+              </div>
             </div>
           )}
         </div>

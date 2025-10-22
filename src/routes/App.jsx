@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import NavBar from "../components/Navbar.jsx";
 
 // Páginas
-import Activos from "../pages/Activos";
+import Activos from "../pages/activos";
 import ActivoNuevo from "../pages/ActivoNuevo";
 import Asignaciones from "../pages/Asignaciones";
 import Asignar from "../pages/Asignar";
