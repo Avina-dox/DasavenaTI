@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { useTheme } from "@mui/material/styles";               // ← para saber si está dark/light
+import { useTheme } from "@mui/material/styles"; // ← para saber si está dark/light
 import { useColorMode } from "../components/ThemeProvider.jsx"; // ← toggle del tema
 
-// Minimalist modern button base styles (no gradients)
+
 const linkBase =
   "px-4 py-2 rounded-lg text-base font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C16C] focus-visible:ring-offset-2 shadow-sm border border-transparent";
 
@@ -16,8 +16,8 @@ function TopLink({ to, children }) {
         [
           linkBase,
           isActive
-            ? "bg-white text-[#6A2C75] border-[#E9C16C] shadow"
-            : "bg-transparent text-white hover:bg-white/20 hover:text-[#E9C16C] hover:border-[#E9C16C]",
+            ? "bg-[#fafafa29] text-[#efe0f2] border-[#E9C16C] shadow hover:animate"
+            : "bg-gradient-to-b from-[#6A2C75] to-[#752b62ad] px-4 py-2 rounded-xl shadow-lg hover:animate-pulse hover:bg-amber-100 hover:border-[#E9C16C]",
         ].join(" ")
       }
     >
@@ -68,10 +68,10 @@ function DesktopDropdown({ label, items }) {
             onClick={handleOptionClick}
             className={({ isActive }) =>
               [
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-base transition-all border border-transparent",
+                "flex items-center gap-4  rounded-lg px-3 py-2 text-base transition-all border border-transparent ",
                 isActive
                   ? "bg-white text-[#6A2C75] border-[#E9C16C] shadow"
-                  : "text-[#6A2C75] hover:bg-[#F5F5F5] hover:text-[#E9C16C] hover:border-[#E9C16C]",
+                  : "bg-gradient-to-b from-[#6a2c7559] to-[#e9c26c3e] px-4 py-2 rounded-xl shadow-lg hover:animate-pulse hover:bg-amber-100 hover:border-[#E9C16C]",
               ].join(" ")
             }
           >
@@ -185,7 +185,7 @@ export default function NavBar() {
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-4">
-          <TopLink to="/">Inicio</TopLink>
+          <TopLink class="" to="/">Inicio</TopLink>
           <DesktopDropdown label="Activos" items={activosMenu} />
           <DesktopDropdown label="Asignaciones" items={asignacionesMenu} />
           <TopLink to="/reportes">Reportes</TopLink>
@@ -218,19 +218,19 @@ export default function NavBar() {
             </button>
 
             <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 shadow-inner border border-[#E9C16C]/30">
-              <div className="grid h-10 w-10 place-content-center rounded-full bg-[#E9C16C] text-[#6A2C75] text-lg font-bold shadow">
+              <div className="grid h-9 w-9 place-content-center rounded-full bg-[#E9C16C] text-[#6A2C75] text-lg font-bold shadow">
                 {(user?.name ?? "U").slice(0, 1).toUpperCase()}
               </div>
               <span className="max-w-[180px] truncate text-[#6A2C75] text-base font-semibold">
-                {user?.name}
+                {(user?.name ?? "u" ).slice(0,7).toUpperCase()}
               </span>
             </div>
             <button
               onClick={doLogout}
-              className="rounded-lg border border-[#E9C16C] px-5 py-1 text-base text-[#6A2C75] bg-white hover:bg-[#F5F5F5] transition-all shadow"
+              className="rounded-lg border border-[#e9c26c7d] px-5 py-1 text-base text-[#e7dbe9] bg-[#f5f5f517] hover:bg-[#f5f5f54c] transition-all shadow bg-gradient-to-br from-[#f5f5f538] via-[#e9c26c57] to-[#6a2c7577]"
             >
               Cerrar sesión
-            </button>
+            </button> 
           </div>
         </nav>
 

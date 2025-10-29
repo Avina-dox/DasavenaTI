@@ -147,7 +147,7 @@ export default function Inicio() {
 
   return (
     <Box sx={{ maxWidth: 1280, mx: "auto", p: { xs: 2, md: 4 } }}>
-      {/* Header */}
+      {/* Hero dashboard */}
       <Card
         sx={{
           borderRadius: 4,
