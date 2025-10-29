@@ -16,7 +16,7 @@ function TopLink({ to, children }) {
         [
           linkBase,
           isActive
-            ? "bg-[#fafafa29] text-[#efe0f2] border-[#E9C16C] shadow hover:animate"
+            ? "bg-[#fafafa29] text-white border-[#E9C16C] shadow hover:animate"
             : "bg-gradient-to-b from-[#6A2C75] to-[#752b62ad] px-4 py-2 rounded-xl shadow-lg hover:animate-pulse hover:bg-amber-100 hover:border-[#E9C16C]",
         ].join(" ")
       }
@@ -45,7 +45,7 @@ function DesktopDropdown({ label, items }) {
     <div ref={ref} className="relative">
       <button
         type="button"
-        className={`${linkBase} bg-transparent text-white hover:bg-white/20 hover:text-[#E9C16C] hover:border-[#E9C16C] inline-flex items-center gap-2`}
+        className={`${linkBase}  bg-gradient-to-b from-[#6A2C75] to-[#752b62ad] px-4 py-2 rounded-xl shadow-lg hover:animate-pulse inline-flex items-center gap-2`}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={handleButtonClick}

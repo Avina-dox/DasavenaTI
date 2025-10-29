@@ -227,8 +227,8 @@ export default function Inicio() {
       </Card>
 
       {/* KPIs */}
-      <div className="space-y-3">
-        <Grid container spacing={1} sx={{ mb: 3 }}>
+      <div className="spa</Stack>ce-y-3 ">
+        <Grid container spacing={0} sx={{ mb: 6, borderRadius: 10  }}>
           {[
             { label: "Activos totales", value: kpis.total, sub: "unidades" },
             { label: "Asignados", value: kpis.asignados, sub: "en uso" },
